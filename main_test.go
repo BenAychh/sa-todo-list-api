@@ -10,11 +10,26 @@ import (
 	"testing"
 )
 
+const (
+	testDbHost     = "TEST_DB_HOST"
+	testDbPort     = "TEST_DB_PORT"
+	testDbName     = "TEST_DB_NAME"
+	testDbUser     = "TEST_DB_USER"
+	testDbPassword = "TEST_DB_PASSWORD"
+)
+
 var todoApp TodoApp
 
 func TestMain(m *testing.M) {
 	todoApp = TodoApp{}
-	todoApp.Initialize("localhost", "5432", "sa_todo_list_test", "sa_todo_list_tester", "testing123", "disable")
+	todoApp.Initialize(
+		getEnvVariableWithDefault(testDbHost, "localhost"),
+		getEnvVariableWithDefault(testDbPort, "5432"),
+		getEnvVariableWithDefault(testDbName, "sa_todo_list_test"),
+		getEnvVariableWithDefault(testDbUser, "sa_todo_list_tester"),
+		getEnvVariableWithDefault(testDbPassword, "testing123"),
+		"disable",
+	)
 
 	ensureTableExists()
 
@@ -85,6 +100,14 @@ func checkData(t *testing.T, expected interface{}, actual []byte) {
 	if string(actualBytes) != string(expectedBytes) {
 		t.Fatalf("Expected body.data to be %+v but got %+v instead", expected, body["data"])
 	}
+}
+
+func getEnvVariableWithDefault(name string, def string) string {
+	variable, ok := os.LookupEnv(name)
+	if !ok {
+		return def
+	}
+	return variable
 }
 
 func ensureTableExists() {

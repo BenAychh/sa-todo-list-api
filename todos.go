@@ -32,7 +32,7 @@ func (t *todo) delete(db *sql.DB) error {
 
 func getTodos(db *sql.DB) ([]todo, error) {
 	results, err := db.Query("select * from todos")
-	var todos []todo = nil
+	var todos []todo
 	defer results.Close()
 	if err == nil {
 		todos = []todo{}
