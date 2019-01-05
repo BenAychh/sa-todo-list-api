@@ -73,6 +73,7 @@ func (app *TodoApp) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		sendError(w, http.StatusBadRequest, "Malformed payload")
+		return
 	}
 
 	err = t.create(app.dB)
@@ -174,7 +175,7 @@ func mergeMapAndTodo(t *todo, m map[string]string) *errorDetails {
 			if bErr != nil {
 				return &errorDetails{
 					code:    http.StatusBadRequest,
-					message: "Invalue value for complete, must be true or false",
+					message: "Invalid value for complete, must be true or false",
 				}
 			}
 			t.Complete = b

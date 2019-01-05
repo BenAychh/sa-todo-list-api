@@ -69,6 +69,19 @@ func TestCreateTodo(t *testing.T) {
 	checkData(t, expected, response.Body.Bytes())
 }
 
+func TestCreateTodoBadPayload(t *testing.T) {
+	// Setup
+	clearTable()
+
+	// Execute
+	payload := []byte(`"description"="todo one"`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	checkCode(t, http.StatusBadRequest, response.Code)
+	checkError(t, "Malformed payload", response.Body.Bytes())
+}
+
 func TestListOfTodos(t *testing.T) {
 	// Setup
 	clearTable()
@@ -135,6 +148,96 @@ func TestUpdateDescription(t *testing.T) {
 	checkData(t, expected, response.Body.Bytes())
 }
 
+func TestUpdateTodoNotFound(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"complete": "true"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/2", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusNotFound, response.Code)
+	checkError(t, "Not Found", response.Body.Bytes())
+}
+
+func TestUpdateTodoNonNumericId(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"complete": "true"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/abc", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusNotFound, response.Code)
+	checkError(t, "Not Found", response.Body.Bytes())
+}
+
+func TestUpdateTodoMalformedJSON(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`"complete"="true"`)
+	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusBadRequest, response.Code)
+	checkError(t, "Malformed payload", response.Body.Bytes())
+}
+
+func TestUpdateTodoBadKey(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"BadKey": "abcdef"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusBadRequest, response.Code)
+	checkError(t, "Only the keys description and complete are allowed", response.Body.Bytes())
+}
+
+func TestUpdateTodoNonBooleanComplete(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"complete": "abcdef"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusBadRequest, response.Code)
+	checkError(t, "Invalid value for complete, must be true or false", response.Body.Bytes())
+}
+
 func TestDeletionCorrectResponse(t *testing.T) {
 	// Setup
 	clearTable()
@@ -184,6 +287,27 @@ func TestDeletionActuallyDelete(t *testing.T) {
 	checkData(t, expected, response.Body.Bytes())
 }
 
+func TestDeletionNonNumericId(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	payload = []byte(`{"description": "todo two"}`)
+	req, _ = http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	req, _ = http.NewRequest("DELETE", "/v1/abc", nil)
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusNotFound, response.Code)
+	checkError(t, "Not Found", response.Body.Bytes())
+}
+
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
 	todoApp.router.ServeHTTP(recorder, req)
@@ -205,7 +329,7 @@ func checkData(t *testing.T, expected interface{}, actual []byte) {
 	}
 
 	if body["status"] != "ok" {
-		t.Fatalf("Expected body.status to be 'OK' but got %s instead", body["status"])
+		t.Fatalf("Expected body.status to be 'ok' but got %s instead", body["status"])
 	}
 
 	expectedBytes, _ := json.Marshal(expected)
@@ -214,6 +338,23 @@ func checkData(t *testing.T, expected interface{}, actual []byte) {
 
 	if string(actualBytes) != string(expectedBytes) {
 		t.Fatalf("Expected body.data to be %+v but got %+v instead", expected, body["data"])
+	}
+}
+
+func checkError(t *testing.T, expected string, actual []byte) {
+	var body map[string]interface{}
+	json.Unmarshal(actual, &body)
+
+	if body["data"] != nil {
+		t.Fatalf("Expected body.data to be nil but got %+v instead", body["error"])
+	}
+
+	if body["status"] != "error" {
+		t.Fatalf("Expected body.status to be 'error' but got %s instead", body["status"])
+	}
+
+	if body["error"] != expected {
+		t.Fatalf("Expected body.error to be %+v but got %+v instead", expected, body["error"])
 	}
 }
 
