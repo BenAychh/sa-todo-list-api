@@ -152,7 +152,7 @@ func TestDeletionCorrectResponse(t *testing.T) {
 	response := executeRequest(req)
 
 	// Test
-	checkCode(t, http.StatusNoContent, response.Code)
+	checkCode(t, http.StatusOK, response.Code)
 	checkData(t, nil, response.Body.Bytes())
 }
 
@@ -237,11 +237,11 @@ func clearTable() {
 }
 
 func todoMap(id int, description string, complete bool) map[string]interface{} {
-	m := map[string]interface{}{}
-	m["id"] = id
-	m["description"] = description
-	m["complete"] = complete
-	return m
+	return map[string]interface{}{
+		"id":          id,
+		"description": description,
+		"complete":    complete,
+	}
 }
 
 const tableCreationQuery = `CREATE TABLE IF NOT EXISTS public.todos

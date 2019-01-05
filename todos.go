@@ -2,13 +2,19 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 )
 
 type todo struct {
 	ID          int    `json:"id"`
 	Description string `json:"description"`
 	Complete    bool   `json:"complete"`
+}
+
+func (t *todo) get(db *sql.DB) error {
+	return db.QueryRow(
+		`select * from todos where id = $1`,
+		t.ID,
+	).Scan(&t.ID, &t.Description, &t.Complete)
 }
 
 func (t *todo) create(db *sql.DB) error {
@@ -18,16 +24,19 @@ func (t *todo) create(db *sql.DB) error {
 	).Scan(&t.ID, &t.Description, &t.Complete)
 }
 
-func (t *todo) toggleCompletion(db *sql.DB) error {
-	return errors.New("Not Implimented Yet")
-}
-
-func (t *todo) updateDescription(db *sql.DB) error {
-	return errors.New("Not Implimented Yet")
+func (t *todo) update(db *sql.DB) error {
+	return db.QueryRow(
+		`update todos set description=$1, complete=$2 where id=$3 returning id, description, complete`,
+		t.Description, t.Complete, t.ID,
+	).Scan(&t.ID, &t.Description, &t.Complete)
 }
 
 func (t *todo) delete(db *sql.DB) error {
-	return errors.New("Not Implimented Yet")
+	_, err := db.Exec(
+		`delete from todos where id=$1`,
+		t.ID,
+	)
+	return err
 }
 
 func getTodos(db *sql.DB) ([]todo, error) {

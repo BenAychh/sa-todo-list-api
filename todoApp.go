@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
@@ -49,6 +50,8 @@ func (app *TodoApp) setupRoutes() {
 	app.router.Route("/v1", func(router chi.Router) {
 		router.Get("/", app.getAllTodos)
 		router.Post("/", app.createTodo)
+		router.Patch("/{todoID}", app.patchTodo)
+		router.Delete("/{todoID}", app.deleteTodo)
 	})
 }
 
@@ -76,6 +79,7 @@ func (app *TodoApp) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	sendJSON(w, http.StatusCreated, t)
@@ -85,4 +89,101 @@ func (app *TodoApp) createTodo(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error closing body in createTodo")
 		log.Println(closeError)
 	}
+}
+
+func (app *TodoApp) patchTodo(w http.ResponseWriter, r *http.Request) {
+	todoIDString := chi.URLParam(r, "todoID")
+	todoID, err := strconv.Atoi(todoIDString)
+	if err != nil {
+		sendError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	t := todo{ID: todoID}
+	err = t.get(app.dB)
+
+	if err != nil {
+		sendError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	payload := map[string]string{}
+
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&payload)
+
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Malformed payload")
+		return
+	}
+
+	mergeErrorDetails := mergeMapAndTodo(&t, payload)
+
+	if mergeErrorDetails != nil {
+		sendError(w, mergeErrorDetails.code, mergeErrorDetails.message)
+		return
+	}
+
+	err = t.update(app.dB)
+
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	sendJSON(w, http.StatusOK, t)
+
+	closeError := r.Body.Close()
+	if closeError != nil {
+		log.Println("Error closing body in createTodo")
+		log.Println(closeError)
+	}
+}
+
+func (app *TodoApp) deleteTodo(w http.ResponseWriter, r *http.Request) {
+	todoIDString := chi.URLParam(r, "todoID")
+	todoID, err := strconv.Atoi(todoIDString)
+	if err != nil {
+		sendError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	t := todo{ID: todoID}
+	err = t.delete(app.dB)
+
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	sendJSON(w, http.StatusOK, nil)
+}
+
+type errorDetails struct {
+	code    int
+	message string
+}
+
+func mergeMapAndTodo(t *todo, m map[string]string) *errorDetails {
+	for key, value := range m {
+		switch key {
+		case "description":
+			t.Description = value
+		case "complete":
+			b, bErr := strconv.ParseBool(value)
+			if bErr != nil {
+				return &errorDetails{
+					code:    http.StatusBadRequest,
+					message: "Invalue value for complete, must be true or false",
+				}
+			}
+			t.Complete = b
+		default:
+			return &errorDetails{
+				code:    http.StatusBadRequest,
+				message: "Only the keys description and complete are allowed",
+			}
+		}
+	}
+	return nil
 }
