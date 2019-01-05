@@ -13,3 +13,6 @@
 
 # Local environment file
 .env
+
+# Binaries
+sa-todo-list-api

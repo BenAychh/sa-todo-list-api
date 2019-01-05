@@ -48,70 +48,41 @@ func (app *TodoApp) Start(address string) {
 func (app *TodoApp) setupRoutes() {
 	app.router.Route("/v1", func(router chi.Router) {
 		router.Get("/", app.getAllTodos)
+		router.Post("/", app.createTodo)
 	})
 }
 
 func (app *TodoApp) getAllTodos(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, 200, []string{})
-}
-
-type response struct {
-	Status string      `json:"status"`
-	Data   interface{} `json:"data"`
-	Error  interface{} `json:"error"`
-}
-
-func sendJSON(w http.ResponseWriter, code int, payload interface{}) {
-	r := response{
-		Status: "ok",
-		Data:   payload,
-		Error:  nil,
-	}
-	jsonResponse, error := json.Marshal(r)
-
-	if error != nil {
-		fmt.Println("Error converting to json")
-		fmt.Println(error)
-		sendError(w, http.StatusInternalServerError, error)
+	todos, err := getTodos(app.dB)
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "Internal Server Error")
+		log.Println("Error getting todos")
+		log.Println(err)
 	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(code)
-		_, error = w.Write(jsonResponse)
-		if error != nil {
-			fmt.Println("Error sending json")
-			fmt.Println(error)
-		}
+		sendJSON(w, 200, todos)
 	}
 }
 
-func sendError(w http.ResponseWriter, code int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	r := response{
-		Status: "error",
-		Data:   nil,
-		Error:  payload,
-	}
-	jsonResponse, error := json.Marshal(r)
+func (app *TodoApp) createTodo(w http.ResponseWriter, r *http.Request) {
+	var t todo
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&t)
 
-	if error != nil {
-		fmt.Println("Error converting error to json")
-		fmt.Println(error)
-		r = response{
-			Status: "error",
-			Data:   nil,
-			Error:  nil,
-		}
-		jsonResponse, error = json.Marshal(r)
-		if error != nil {
-			fmt.Println("Error converting basic response to json")
-			fmt.Println(error)
-		}
-		w.WriteHeader(http.StatusInternalServerError)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Malformed payload")
 	}
-	_, error = w.Write(jsonResponse)
-	if error != nil {
-		fmt.Println("Error sending error")
-		fmt.Println(error)
+
+	err = t.create(app.dB)
+
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, err.Error())
+	}
+
+	sendJSON(w, http.StatusCreated, t)
+
+	closeError := r.Body.Close()
+	if closeError != nil {
+		log.Println("Error closing body in createTodo")
+		log.Println(closeError)
 	}
 }
