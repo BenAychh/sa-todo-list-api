@@ -41,31 +41,146 @@ func TestMain(m *testing.M) {
 }
 
 func TestEmptyTable(t *testing.T) {
+	// Setup
 	clearTable()
 
+	// Execute
 	req, _ := http.NewRequest("GET", "/v1", nil)
 	response := executeRequest(req)
 
+	// Test
 	checkCode(t, http.StatusOK, response.Code)
-
 	checkData(t, []interface{}{}, response.Body.Bytes())
 }
 
 func TestCreateTodo(t *testing.T) {
+	// Setup
 	clearTable()
 
+	// Execute
 	payload := []byte(`{"description": "todo one"}`)
-
 	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 
-	expected := map[string]interface{}{}
-	expected["id"] = 1
-	expected["description"] = "todo one"
-	expected["complete"] = false
+	// Test
+	expected := todoMap(1, "todo one", false)
 
 	checkCode(t, http.StatusCreated, response.Code)
+	checkData(t, expected, response.Body.Bytes())
+}
 
+func TestListOfTodos(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	payload = []byte(`{"description": "todo two"}`)
+	req, _ = http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	req, _ = http.NewRequest("GET", "/v1", nil)
+	response := executeRequest(req)
+
+	// Test
+	expected := []map[string]interface{}{
+		todoMap(1, "todo one", false),
+		todoMap(2, "todo two", false),
+	}
+
+	checkCode(t, http.StatusOK, response.Code)
+	checkData(t, expected, response.Body.Bytes())
+}
+
+func TestUpdateCompleted(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"complete": "true"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	expected := todoMap(1, "todo one", true)
+
+	checkCode(t, http.StatusOK, response.Code)
+	checkData(t, expected, response.Body.Bytes())
+}
+
+func TestUpdateDescription(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	payload = []byte(`{"description": "new description"}`)
+	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
+	response := executeRequest(req)
+
+	// Test
+	expected := todoMap(1, "new description", false)
+
+	checkCode(t, http.StatusOK, response.Code)
+	checkData(t, expected, response.Body.Bytes())
+}
+
+func TestDeletionCorrectResponse(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	payload = []byte(`{"description": "todo two"}`)
+	req, _ = http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	// Execute
+	req, _ = http.NewRequest("DELETE", "/v1/1", nil)
+	response := executeRequest(req)
+
+	// Test
+	checkCode(t, http.StatusNoContent, response.Code)
+	checkData(t, nil, response.Body.Bytes())
+}
+
+func TestDeletionActuallyDelete(t *testing.T) {
+	// Setup
+	clearTable()
+
+	payload := []byte(`{"description": "todo one"}`)
+	req, _ := http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	payload = []byte(`{"description": "todo two"}`)
+	req, _ = http.NewRequest("POST", "/v1", bytes.NewBuffer(payload))
+	_ = executeRequest(req)
+
+	req, _ = http.NewRequest("DELETE", "/v1/1", nil)
+	_ = executeRequest(req)
+
+	// Execute
+	req, _ = http.NewRequest("GET", "/v1", nil)
+	response := executeRequest(req)
+
+	// Test
+	expected := []map[string]interface{}{
+		todoMap(2, "todo two", false),
+	}
+
+	// Test
 	checkData(t, expected, response.Body.Bytes())
 }
 
@@ -119,6 +234,14 @@ func ensureTableExists() {
 
 func clearTable() {
 	todoApp.dB.Exec("TRUNCATE todos RESTART IDENTITY;")
+}
+
+func todoMap(id int, description string, complete bool) map[string]interface{} {
+	m := map[string]interface{}{}
+	m["id"] = id
+	m["description"] = description
+	m["complete"] = complete
+	return m
 }
 
 const tableCreationQuery = `CREATE TABLE IF NOT EXISTS public.todos
