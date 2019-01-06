@@ -1,27 +1,31 @@
-version: "2.1"
+version: "3.7"
 
 services:
   postgresdb:
     image: postgres:11.1
     environment:
-      - POSTGRES_PASSWORD=secret
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  test:
-    build:
-      context: .
-      dockerfile: test.Dockerfile
+  api:
+    image: gcr.io/sa-todo-list/todo-api:latest
     links:
       - postgresdb
     depends_on:
       - postgresdb
+    ports:
+      - 8080:8000
+    restart: always
     environment:
-      - TEST_DB_HOST=postgresdb
-      - TEST_DB_PORT=5432
-      - TEST_DB_NAME=postgres
-      - TEST_DB_USER=postgres
-      - TEST_DB_PASSWORD=secret
+      - DB_HOST=postgresdb
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SSL_MODE=disable
+      - SERVER_PORT=8000

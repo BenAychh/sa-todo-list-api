@@ -1,0 +1,27 @@
+version: "2.1"
+
+services:
+  postgresdb-test:
+    image: postgres:11.1
+    environment:
+      - POSTGRES_PASSWORD=secret
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  test:
+    build:
+      context: .
+      dockerfile: test.Dockerfile
+    links:
+      - postgresdb-test
+    depends_on:
+      - postgresdb-test
+    environment:
+      - TEST_DB_HOST=postgresdb-test
+      - TEST_DB_PORT=5432
+      - TEST_DB_NAME=postgres
+      - TEST_DB_USER=postgres
+      - TEST_DB_PASSWORD=secret

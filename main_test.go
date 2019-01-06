@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		"disable",
 	)
 
-	ensureTableExists()
+	testEnsureTableExists()
 
 	code := m.Run()
 
@@ -366,7 +366,7 @@ func getEnvVariableWithDefault(name string, def string) string {
 	return variable
 }
 
-func ensureTableExists() {
+func testEnsureTableExists() {
 	_, err := todoApp.dB.Exec(tableCreationQuery)
 	if err != nil {
 		log.Fatal(err)
@@ -384,11 +384,3 @@ func todoMap(id int, description string, complete bool) map[string]interface{} {
 		"complete":    complete,
 	}
 }
-
-const tableCreationQuery = `CREATE TABLE IF NOT EXISTS public.todos
-(
-    id serial NOT NULL,
-    description character varying NOT NULL,
-    complete boolean NOT NULL DEFAULT false,
-    PRIMARY KEY (id)
-)`

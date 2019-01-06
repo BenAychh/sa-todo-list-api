@@ -33,6 +33,12 @@ func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode strin
 	if err != nil {
 		panic(err)
 	}
+
+	_, err = app.dB.Exec(tableCreationQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Println("Connected to DB")
 
 	app.router = chi.NewRouter()
@@ -188,3 +194,11 @@ func mergeMapAndTodo(t *todo, m map[string]string) *errorDetails {
 	}
 	return nil
 }
+
+const tableCreationQuery = `CREATE TABLE IF NOT EXISTS public.todos
+(
+    id serial NOT NULL,
+    description character varying NOT NULL,
+    complete boolean NOT NULL DEFAULT false,
+    PRIMARY KEY (id)
+)`
