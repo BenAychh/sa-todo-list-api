@@ -29,3 +29,4 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_SSL_MODE=disable
       - SERVER_PORT=8000
+      - CORS_ORIGINS=${CORS_ORIGINS}
