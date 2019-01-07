@@ -118,7 +118,7 @@ func TestUpdateCompleted(t *testing.T) {
 	_ = executeRequest(req)
 
 	// Execute
-	payload = []byte(`{"complete": "true"}`)
+	payload = []byte(`{"complete": true}`)
 	req, _ = http.NewRequest("PATCH", "/v1/1", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 
@@ -236,7 +236,7 @@ func TestUpdateTodoNonBooleanComplete(t *testing.T) {
 
 	// Test
 	checkCode(t, http.StatusBadRequest, response.Code)
-	checkError(t, "Invalid value for complete, must be true or false", response.Body.Bytes())
+	checkError(t, "Invalid value for complete, must be boolean true or false", response.Body.Bytes())
 }
 
 func TestDeletionCorrectResponse(t *testing.T) {

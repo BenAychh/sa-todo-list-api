@@ -55,7 +55,7 @@ func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode strin
 
 	cors := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
@@ -120,6 +120,7 @@ func (app *TodoApp) createTodo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// I feel like there is probably a more idomatic way to do this in Go but not sure what to search for.
 func (app *TodoApp) patchTodo(w http.ResponseWriter, r *http.Request) {
 	todoIDString := chi.URLParam(r, "todoID")
 	todoID, err := strconv.Atoi(todoIDString)
@@ -136,7 +137,7 @@ func (app *TodoApp) patchTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := map[string]string{}
+	payload := make(map[string]interface{})
 
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&payload)
@@ -193,20 +194,27 @@ type errorDetails struct {
 	message string
 }
 
-func mergeMapAndTodo(t *todo, m map[string]string) *errorDetails {
+func mergeMapAndTodo(t *todo, m map[string]interface{}) *errorDetails {
 	for key, value := range m {
 		switch key {
 		case "description":
-			t.Description = value
-		case "complete":
-			b, bErr := strconv.ParseBool(value)
-			if bErr != nil {
+			if str, ok := value.(string); ok {
+				t.Description = str
+			} else {
 				return &errorDetails{
 					code:    http.StatusBadRequest,
-					message: "Invalid value for complete, must be true or false",
+					message: "Description must be a string",
 				}
 			}
-			t.Complete = b
+		case "complete":
+			if boolean, ok := value.(bool); ok {
+				t.Complete = boolean
+			} else {
+				return &errorDetails{
+					code:    http.StatusBadRequest,
+					message: "Invalid value for complete, must be boolean true or false",
+				}
+			}
 		default:
 			return &errorDetails{
 				code:    http.StatusBadRequest,
