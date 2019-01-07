@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 	_ "github.com/lib/pq"
 )
@@ -20,18 +22,28 @@ type TodoApp struct {
 }
 
 // Initialize must be called before start to setup the database
-func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode string) {
+func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode string, corsOrigins []string) {
 	connectionInformation := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s", host, port, dbname, user, password, sslmode)
 
 	var err error
 
 	app.dB, err = sql.Open("postgres", connectionInformation)
+
 	if err != nil {
 		panic(err)
 	}
+
 	err = app.dB.Ping()
-	if err != nil {
-		panic(err)
+
+	for i := 1; i <= 10 && err != nil; i++ {
+		fmt.Printf("Error connecting to database try %d of 10\n", i)
+		if i == 10 {
+			fmt.Println("Could not connect to database after 10 tries, giving up")
+			panic(err)
+		} else {
+			time.Sleep(3 * time.Second)
+		}
+		err = app.dB.Ping()
 	}
 
 	_, err = app.dB.Exec(tableCreationQuery)
@@ -41,7 +53,17 @@ func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode strin
 
 	fmt.Println("Connected to DB")
 
+	cors := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	})
+
 	app.router = chi.NewRouter()
+	app.router.Use(cors.Handler)
 	app.router.Use(render.SetContentType(render.ContentTypeJSON))
 	app.setupRoutes()
 }

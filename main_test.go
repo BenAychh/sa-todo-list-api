@@ -29,6 +29,7 @@ func TestMain(m *testing.M) {
 		getEnvVariableWithDefault(testDbUser, "sa_todo_list_tester"),
 		getEnvVariableWithDefault(testDbPassword, "testing123"),
 		"disable",
+		[]string{},
 	)
 
 	testEnsureTableExists()
