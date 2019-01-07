@@ -53,13 +53,15 @@ func (app *TodoApp) Initialize(host, port, dbname, user, password, sslmode strin
 
 	fmt.Println("Connected to DB")
 
+	fmt.Println("Allowed origins", corsOrigins)
+
 	cors := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		MaxAge:           300,
 	})
 
 	app.router = chi.NewRouter()
